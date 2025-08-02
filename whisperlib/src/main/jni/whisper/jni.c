@@ -1,3 +1,6 @@
+// From whisper.cpp's documentation https://github.com/ggml-org/whisper.cpp/tree/master/examples/whisper.android
+// https://github.com/ggml-org/whisper.cpp?tab=MIT-1-ov-file#readme
+
 #include <jni.h>
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>

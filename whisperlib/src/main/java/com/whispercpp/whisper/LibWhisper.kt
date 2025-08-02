@@ -1,3 +1,6 @@
+// From whisper.cpp's documentation https://github.com/ggml-org/whisper.cpp/tree/master/examples/whisper.android
+// https://github.com/ggml-org/whisper.cpp?tab=MIT-1-ov-file#readme
+
 package com.whispercpp.whisper
 
 import android.content.res.AssetManager

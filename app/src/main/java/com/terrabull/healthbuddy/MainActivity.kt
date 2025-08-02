@@ -93,7 +93,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 }
             }
         }) {
-            Text(if (isRecording) "Stop Recording" else "Start Recording")
+            Text(if (isRecording) "Stop Recording" else "Start Recording \"\uD83D\uDE0A\" ")
         }
 
         Spacer(modifier = Modifier.height(16.dp))

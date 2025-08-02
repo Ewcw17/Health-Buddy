@@ -47,6 +47,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
+import com.terrabull.healthbuddy.api.GoogleTtsPlayer
+import java.time.LocalDate
+import java.time.LocalTime
+
 class MainActivity : ComponentActivity() {
 
     private val CHANNEL_ID = "channel_id_example_01"
@@ -205,8 +209,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    return@Button
                                 }
+
+                                val hasAlarmPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED;
+                                if(!hasAlarmPermission){
+                                    permissionLauncher.launch(Manifest.permission.SCHEDULE_EXACT_ALARM)
+                                }
+
                                 recorder.start()
                                 isRecording = true
                                 transcription = ""
@@ -229,11 +238,14 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                                     "You should aim to take up no more than 20 minutes per day." +
                                                     "When building a regimen, talk back and forth with the user to figure out what time and what exercises would be best" +
                                                     "for him or her. When you are done, build a schedule by calling a tool. " +
-                                                    "The format is, {make_workout([workout name], [workout description], [time start (24h)], [time end (24h)], days:[(Mo,Tu,We,Th,Fr,Sa,Su)]}" +
+                                                    "The format is, {make_workout([workout name], [workout description], [time start (24h format, like 1930 or 600)], [time end (24h as before)], days:[(Mo,Tu,We,Th,Fr,Sa,Su)]}" +
                                                     "When you've finished a routine and now all there is is to wait for the workout, you can end the conversation with the tool call" +
                                                     "{end_conversation()}" +
-                                                    "The user is talking to you though a speech-to-text frontend, please keep that in mind.")
+                                                    "The user is talking to you though a speech-to-text frontend, please keep that in mind." +
+                                                    "Please also keep in mind your response will be sent through a text-to-speech backend. Please write accordingly." +
+                                                    "It is " + LocalDate.now() + ", " + LocalTime.now() + ", " + LocalDate.now().dayOfWeek)
                                         transcription = result.ifBlank { "No response from API." }
+                                        GoogleTtsPlayer.speak(transcription, context)
                                     } catch (e: Exception) {
                                         transcription = "Error: ${e.localizedMessage}"
                                     }

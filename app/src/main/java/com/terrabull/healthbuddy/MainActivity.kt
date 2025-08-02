@@ -20,6 +20,8 @@ import com.terrabull.healthbuddy.ui.theme.HealthBuddyTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
+import androidx.compose.foundation.background
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +64,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)  // Uses theme color
             .padding(16.dp),
         verticalArrangement = Arrangement.Top
     ) {

@@ -85,7 +85,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 scope.launch {
                     transcription = "Thinking…"
                     try {
-                        val result = GeminiApiWrapper.sendWavForResponse(cacheFile, "Your name is Buddy, a helpful assistant.")
+                        val result = GeminiApiWrapper.sendWavWithHistory(cacheFile, "Your name is Buddy, a helpful assistant.")
                         transcription = result.ifBlank { "No response from API." }
                     } catch (e: Exception) {
                         transcription = "Error: ${e.localizedMessage}"

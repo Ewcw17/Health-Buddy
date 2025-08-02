@@ -11,57 +11,58 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Collections
 
-/**
- * GeminiApiWrapper
- *
- * Handles two things:
- * 1. Speech‑to‑Text transcription of RIFF‑WAV via Google Speech‑to‑Text.
- * 2. Text generation via Gemini’s *generateContent* REST endpoint.
- *
- * ---
- * **2025‑08‑02**
- * » Fixed 400 "Bad Request" when using a system prompt.
- *   The Gemini REST API expects *system instructions* in a **top‑level**
- *   `system_instruction` object, **not** as another element in `contents`.
- *   This rewrite moves the prompt accordingly.
- *
- * Usage:
- * ```kotlin
- * val reply = GeminiApiWrapper.sendWavForResponse(
- *     wavFile,
- *     systemPrompt = "You are a friendly medical assistant."
- * )
- * ```
- */
 object GeminiApiWrapper {
 
-    // ───────── Configuration ─────────
+    // ─────────────── Public model ────────────────
+    data class ChatMessage(val role: String, val text: String)
+
+    /** Thread‑safe single‑process default history.  You *may* ignore it and
+     *  provide your own list on each call if you need per‑conversation state
+     *  that survives process death (e.g. persist to Room / Preferences). */
+    val inMemoryHistory: MutableList<ChatMessage> =
+        Collections.synchronizedList(mutableListOf())
+
+    /** Remove all messages from [inMemoryHistory]. */
+    fun clearHistory() = inMemoryHistory.clear()
+
+    // ─────────────── Config constants ────────────────
     private const val SPEECH_API_URL = "https://speech.googleapis.com/v1/speech:recognize"
-    private const val MODEL_NAME     = "gemini-2.5-flash"       // change if needed
+    private const val MODEL_NAME     = "gemini-2.5-flash"   // change if needed
     private const val TEXT_API_URL   =
         "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s"
 
     private const val SAMPLE_RATE_HZ = 16_000
     private const val LANGUAGE_CODE  = "en-US"
-    // ──────────────────────────────────
 
     private val API_KEY     = BuildConfig.GEMINI_API_KEY
     private val httpClient  = OkHttpClient()
 
+    // ─────────────────── High‑level helper ───────────────────
     /**
-     * High‑level helper: transcribe *[wavFile]* then get a Gemini reply.  If
-     * *[systemPrompt]* is provided it will be sent as `system_instruction`.
+     * Convenience method: transcribes *[wavFile]*, appends the user transcript
+     * to *[history]*, sends the full chat to Gemini, appends Gemini's reply
+     * back into *[history]*, and finally returns the reply text.
+     *
+     * If you do **not** want to keep any local state, simply pass a new
+     * `mutableListOf()` every time.  If you *do* want state, reuse the same
+     * list (e.g. [inMemoryHistory]).
      */
-    suspend fun sendWavForResponse(
+    suspend fun sendWavWithHistory(
         wavFile: File,
-        systemPrompt: String? = null
+        systemPrompt: String? = null,
+        history: MutableList<ChatMessage> = inMemoryHistory
     ): String = withContext(Dispatchers.IO) {
-        val transcript = transcribeSpeech(wavFile)
-        generateGeminiReply(transcript, systemPrompt)
+        val userTranscript = transcribeSpeech(wavFile)
+        history += ChatMessage("user", userTranscript)
+
+        val reply = generateGeminiReply(history, systemPrompt)
+        history += ChatMessage("model", reply)
+        reply
     }
 
-    // ---------- Speech‑to‑Text ----------
+    // ─────────────────── Speech‑to‑Text ───────────────────
     private fun buildSttRequestBody(audioBase64: String): String =
         JSONObject().apply {
             put("config", JSONObject().apply {
@@ -84,11 +85,12 @@ object GeminiApiWrapper {
 
         httpClient.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {
-                throw RuntimeException("Speech-to-Text error ${resp.code}: ${resp.message}")
+                throw RuntimeException("Speech‑to‑Text error ${resp.code}: ${resp.message}")
             }
-            val resJson = JSONObject(resp.body?.string().orEmpty())
-            val results = resJson.optJSONArray("results")
+            val results = JSONObject(resp.body?.string().orEmpty())
+                .optJSONArray("results")
                 ?: throw RuntimeException("No transcription results.")
+
             return results.getJSONObject(0)
                 .getJSONArray("alternatives")
                 .getJSONObject(0)
@@ -96,38 +98,44 @@ object GeminiApiWrapper {
         }
     }
 
-    // ------------- Gemini -------------
-    private fun buildGeminiRequestBody(userPrompt: String, systemPrompt: String?): String =
-        JSONObject().apply {
-            // Optional system instruction (top‑level)
-            if (!systemPrompt.isNullOrBlank()) {
-                put("system_instruction", JSONObject().apply {
-                    put("role", "system") // role is ignored by API but kept for clarity
+    // ─────────────────── Gemini chat ───────────────────
+    /** Build JSON for the Gemini *generateContent* endpoint using the full
+     * message stream in [history]. */
+    private fun buildGeminiChatRequestBody(
+        history: List<ChatMessage>,
+        systemPrompt: String?
+    ): String = JSONObject().apply {
+        if (!systemPrompt.isNullOrBlank()) {
+            put("system_instruction", JSONObject().apply {
+                put("role", "system")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().put("text", systemPrompt))
+                })
+            })
+        }
+
+        put("contents", JSONArray().apply {
+            history.forEach { msg ->
+                put(JSONObject().apply {
+                    put("role", msg.role)
                     put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", systemPrompt))
+                        put(JSONObject().put("text", msg.text))
                     })
                 })
             }
-
-            // Required user contents
-            put("contents", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", userPrompt))
-                    })
-                })
-            })
-        }.toString()
+        })
+    }.toString()
 
     /**
-     * Low‑level text generation call.  Supply the *[userPrompt]* and optional
-     * *[systemPrompt]*.  Throws RuntimeException on non‑2xx HTTP codes or empty
-     * response.
+     * Core network call – takes the entire *[history]* (user + model messages)
+     * and optional *[systemPrompt]*, returns Gemini's latest reply text.
      */
-    fun generateGeminiReply(userPrompt: String, systemPrompt: String? = null): String {
-        val url = TEXT_API_URL.format(MODEL_NAME, API_KEY)
-        val body = buildGeminiRequestBody(userPrompt, systemPrompt)
+    fun generateGeminiReply(
+        history: List<ChatMessage>,
+        systemPrompt: String? = null
+    ): String {
+        val url  = TEXT_API_URL.format(MODEL_NAME, API_KEY)
+        val body = buildGeminiChatRequestBody(history, systemPrompt)
             .toRequestBody("application/json; charset=utf-8".toMediaType())
 
         val request = Request.Builder()
@@ -139,12 +147,14 @@ object GeminiApiWrapper {
             if (!resp.isSuccessful) {
                 throw RuntimeException("Gemini API error ${resp.code}: ${resp.message}")
             }
-            val resJson    = JSONObject(resp.body?.string().orEmpty())
-            val candidates = resJson.optJSONArray("candidates")
+            val candidates = JSONObject(resp.body?.string().orEmpty())
+                .optJSONArray("candidates")
                 ?: throw RuntimeException("No candidates returned by Gemini.")
+
             val parts = candidates.getJSONObject(0)
                 .getJSONObject("content")
                 .getJSONArray("parts")
+
             return if (parts.length() > 0) parts.getJSONObject(0).optString("text", "") else ""
         }
     }

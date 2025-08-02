@@ -15,61 +15,79 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+
 public class PcmWavRecorder {
-    private static final int SAMPLE_RATE = 16000;
-    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
-    private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int SAMPLE_RATE     = 16_000;
+    private static final int CHANNEL_CONFIG  = AudioFormat.CHANNEL_IN_MONO;
+    private static final int AUDIO_FORMAT    = AudioFormat.ENCODING_PCM_16BIT;
 
     private AudioRecord recorder;
     private Thread recordingThread;
     private volatile boolean isRecording = false;
-    private File outputWav;
+    private final File outputWav;
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     public PcmWavRecorder(File wavFile) {
-        outputWav = wavFile;
+        this.outputWav = wavFile;
+        initRecorder();              // initial construction
+    }
+
+    /** Create a fresh AudioRecord instance with a valid native handle. */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private void initRecorder() {
         int bufSize = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
+
         recorder = new AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT, bufSize);
     }
 
+    /** Start a new recording session. Can be invoked repeatedly after stop(). */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     public void start() {
+        // Re‑create if released or never initialised
+        if (recorder == null ||
+                recorder.getState() == AudioRecord.STATE_UNINITIALIZED) {
+            initRecorder();
+        }
+
         recorder.startRecording();
         isRecording = true;
-        recordingThread = new Thread(this::writeWavFile);
+        recordingThread = new Thread(this::writeWavFile, "pcm-writer");
         recordingThread.start();
     }
 
+    /** Stop the current recording and release native resources. */
     public void stop() {
-        // stop capturing
+        if (!isRecording) return;
+
         isRecording = false;
         recorder.stop();
-        // wait for the thread to finish writing
+
         if (recordingThread != null) {
             try {
                 recordingThread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            } catch (InterruptedException ignored) {}
             recordingThread = null;
         }
-        // release recorder
-        recorder.release();
+
+        recorder.release();   // frees the native AudioRecord object
+        recorder = null;      // mark pointer as invalid for next start()
     }
 
+    // ───────────────────────── Internal helpers ─────────────────────────
     private void writeWavFile() {
         int totalPcmLen = 0;
-        byte[] buffer = new byte[4096];
+        byte[] buffer   = new byte[4096];
 
         try (FileOutputStream fos = new FileOutputStream(outputWav);
              BufferedOutputStream bos = new BufferedOutputStream(fos)) {
 
-            // 1) Write placeholder header (44 bytes)
+            // 1) Write placeholder 44‑byte RIFF header
             bos.write(new byte[44]);
 
-            // 2) Stream PCM data
+            // 2) Stream PCM while recording flag is true
             while (isRecording) {
                 int read = recorder.read(buffer, 0, buffer.length);
                 if (read > 0) {
@@ -79,30 +97,28 @@ public class PcmWavRecorder {
             }
             bos.flush();
 
-            // 3) Back-fill RIFF header with proper sizes and format
+            // 3) Back‑fill RIFF header with actual sizes
             try (RandomAccessFile raf = new RandomAccessFile(outputWav, "rw")) {
-                // Prepare a proper header in little-endian
                 ByteBuffer header = ByteBuffer.allocate(44)
                         .order(ByteOrder.LITTLE_ENDIAN);
+
                 long totalDataLen = totalPcmLen + 36;
-                long byteRate = SAMPLE_RATE * 2; // channels(1) * bytesPerSample(2)
+                long byteRate     = SAMPLE_RATE * 2; // mono * 16‑bit
 
-                // ChunkID "RIFF"
                 header.put("RIFF".getBytes());
-                header.putInt((int) totalDataLen);             // ChunkSize
-                header.put("WAVE".getBytes());                  // Format
-                header.put("fmt ".getBytes());                  // Subchunk1ID
-                header.putInt(16);                              // Subchunk1Size (PCM)
-                header.putShort((short) 1);                     // AudioFormat = PCM
-                header.putShort((short) 1);                     // NumChannels = mono
-                header.putInt(SAMPLE_RATE);                     // SampleRate
-                header.putInt((int) byteRate);                  // ByteRate
-                header.putShort((short) 2);                     // BlockAlign
-                header.putShort((short) 16);                    // BitsPerSample
-                header.put("data".getBytes());                  // Subchunk2ID
-                header.putInt(totalPcmLen);                     // Subchunk2Size
+                header.putInt((int) totalDataLen);
+                header.put("WAVE".getBytes());
+                header.put("fmt ".getBytes());
+                header.putInt(16);              // PCM header size
+                header.putShort((short) 1);     // PCM format
+                header.putShort((short) 1);     // mono
+                header.putInt(SAMPLE_RATE);
+                header.putInt((int) byteRate);
+                header.putShort((short) 2);     // BlockAlign
+                header.putShort((short) 16);    // BitsPerSample
+                header.put("data".getBytes());
+                header.putInt(totalPcmLen);
 
-                // Write header at the file start
                 raf.seek(0);
                 raf.write(header.array());
             }

@@ -28,9 +28,9 @@ object GoogleTtsPlayer {
     // ───────────── Config ─────────────
     private const val ENDPOINT = "https://texttospeech.googleapis.com/v1/text:synthesize?key=%s"
     private const val LANGUAGE_CODE = "en-US"
-    private const val VOICE_NAME    = "en-US-Neural2-A"     // ⬅ pick any available voice
-    private const val AUDIO_ENCODING = "MP3"                // easiest for MediaPlayer
-    private val API_KEY   = BuildConfig.GEMINI_API_KEY      // add this to build.gradle
+    private const val VOICE_NAME    = "en-US-Chirp-HD-F"
+    private const val AUDIO_ENCODING = "MP3"
+    private val API_KEY   = BuildConfig.GEMINI_API_KEY
     private val http      = OkHttpClient()
     // ──────────────────────────────────
 

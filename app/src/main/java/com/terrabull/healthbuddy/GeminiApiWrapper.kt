@@ -217,11 +217,11 @@ object GeminiApiWrapper {
         // 1) Ask Gemini to summarise the existing turns
         val instruction = "Summarise the previous conversation in ≤$maxWords words. " +
                 "Plain text only – no bullet symbols."
-        val tmp = history.toMutableList().apply {
-            add(ChatMessage("user", instruction))
-        }
+
+        val historySansSummary = history.filter { it.role != "system summary" };
+
         val summary =
-            generateGeminiReply(tmp)   // existing helper :contentReference[oaicite:3]{index=3}
+            generateGeminiReply(historySansSummary, instruction)   // existing helper :contentReference[oaicite:3]{index=3}
 
         // 2) Replace the long log with one compact memory line
         history.removeIf { it.role != "system summary" }

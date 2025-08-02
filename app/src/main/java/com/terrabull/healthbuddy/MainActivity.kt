@@ -181,7 +181,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                                     "When you've finished a routine and now all there is is to wait for the workout, you can end the conversation with the tool call" +
                                                     "{end_conversation()}" +
                                                     "The user is talking to you though a speech-to-text frontend, please keep that in mind.")
-                                        )
                                         transcription = result.ifBlank { "No response from API." }
                                     } catch (e: Exception) {
                                         transcription = "Error: ${e.localizedMessage}"

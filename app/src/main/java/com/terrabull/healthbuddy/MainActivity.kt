@@ -44,6 +44,12 @@ import androidx.compose.ui.graphics.TransformOrigin
 import com.terrabull.healthbuddy.api.GoogleTtsPlayer
 import java.time.LocalDate
 import java.time.LocalTime
+import androidx.work.OneTimeWorkRequest
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkRequest
+import java.util.concurrent.TimeUnit
+
 
 // For animations
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,7 +64,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         createNotificationChannel()
-        sendNotification()
+        scheduleNotificationWorker(1)
+        scheduleNotificationWorker(2)
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -82,7 +89,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private fun sendNotification() {
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -101,6 +107,15 @@ class MainActivity : ComponentActivity() {
             }
             notify(notificationId, builder.build())
         }
+    }
+
+    private fun scheduleNotificationWorker(time_min: Long) {
+        // Create a OneTimeWorkRequest to schedule the worker
+        val notificationWorkRequest: WorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
+            .setInitialDelay(time_min, TimeUnit.MINUTES) // Set a delay (optional)
+            .build()
+
+        WorkManager.getInstance(this).enqueue(notificationWorkRequest)
     }
 }
 
@@ -229,7 +244,6 @@ fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit)
                     // Record button
                     Button(
                         onClick = {
-                            sendNotification()
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)

@@ -120,7 +120,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     }}
 
     if(GeminiApiWrapper.inMemoryHistory.isEmpty())
-        ChatHistoryManager.loadChatHistory(context, true)
+        GeminiApiWrapper.inMemoryHistory.addAll(ChatHistoryManager.loadChatHistory(context, true))
 
 
 

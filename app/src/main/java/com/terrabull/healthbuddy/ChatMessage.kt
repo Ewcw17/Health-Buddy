@@ -1,10 +1,3 @@
-package com.terrabull.healthbuddy.model  // or your package name
+package com.terrabull.healthbuddy
 
-import java.io.Serializable
-import java.util.*
-
-data class ChatMessage(
-    val text: String,
-    val isFromUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
-) : Serializable
+data class ChatMessage(val role: String, val text: String)

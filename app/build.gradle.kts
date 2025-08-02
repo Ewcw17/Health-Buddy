@@ -1,11 +1,16 @@
-import org.gradle.kotlin.dsl.implementation
-import java.util.Properties
 
-val envFile = rootProject.file(".env")
-val env = Properties().apply {
-    if (envFile.exists()) {
-        envFile.inputStream().use { load(it) }
-    }
+import java.io.File
+
+// helper to read KEY=VALUE lines from .env
+fun rootEnv(key: String): String {
+    val envFile = rootProject.file(".env")
+    if (!envFile.exists()) return ""
+    return envFile
+        .readLines().firstNotNullOfOrNull { line ->
+            val (k, v) = line.split("=", limit = 2).let { it.getOrNull(0) to it.getOrNull(1) }
+            if (k == key && v != null) v.trim() else null
+        }
+        ?: ""
 }
 
 plugins {
@@ -20,15 +25,18 @@ android {
 
     defaultConfig {
         applicationId = "com.terrabull.healthbuddy"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val key: String = env.getProperty("GEMINI_API_KEY", "")
-        buildConfigField("String", "GEMINI_API_KEY", "\"$key\"")
+        val geminiKey = rootEnv("GEMINI_API_KEY")
+        if (geminiKey.isBlank()) {
+            logger.warn("GEMINI_API_KEY is not set in .env")
+        }
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
 
     buildTypes {
@@ -49,12 +57,12 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true;
+        android.buildFeatures.buildConfig = true
     }
 }
 
 dependencies {
-    implementation("com.squareup.okhttp3:okhttp:5.1.0")
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

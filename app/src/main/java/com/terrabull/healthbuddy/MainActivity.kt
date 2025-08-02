@@ -24,11 +24,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.terrabull.healthbuddy.api.GeminiApiWrapper
 import com.terrabull.healthbuddy.ui.theme.HealthBuddyTheme
 import kotlinx.coroutines.launch
 import java.io.File
+import android.os.Build
+import android.app.NotificationManager
+import android.app.NotificationChannel
+import android.content.Context
+
 // Added Imports
 import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.animateFloat
@@ -40,6 +48,10 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 class MainActivity : ComponentActivity() {
+
+    private val CHANNEL_ID = "channel_id_example_01"
+    private val notificationId = 101
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -50,8 +62,47 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        createNotificationChannel()
+        sendNotification()
+
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Title"
+            val desc = "desc"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+                description = desc
+            }
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun sendNotification() {
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Example Title")
+            .setContentText("Example Description")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        with(NotificationManagerCompat.from(this)) {
+            if (ActivityCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+
+                return@with
+            }
+            notify(notificationId, builder.build())
+        }
     }
 }
+
 
 @Composable
 fun RecordingScreen(modifier: Modifier = Modifier) {

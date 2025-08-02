@@ -50,6 +50,12 @@ import com.terrabull.healthbuddy.api.GoogleTtsPlayer
 import java.time.LocalDate
 import java.time.LocalTime
 
+// For animations
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.graphicsLayer
+
 class MainActivity : ComponentActivity() {
 
     private val CHANNEL_ID = "channel_id_example_01"
@@ -112,25 +118,29 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var transcription by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    // Animation state
+    // Chat history state
+    val chatHistory = remember { mutableStateListOf<ChatMessage>().apply {
+        addAll(ChatHistoryManager.loadChatHistory(context))
+    }}
+
+
+
+    // Animation for robot
     val infiniteTransition = rememberInfiniteTransition()
     val rockAngle by infiniteTransition.animateFloat(
         initialValue = -5f,
         targetValue = 5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2000,
-                easing = LinearEasing
-            ),
+            animation = tween(2000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         )
     )
 
-    // where we'll store the recording
+    // Audio setup
     val cacheFile = remember { File(context.cacheDir, "recording.wav") }
     val recorder = remember { PcmWavRecorder(cacheFile) }
 
-    // audio-permission handling
+    // Permissions
     var permissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -145,11 +155,34 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         permissionGranted = granted
     }
 
+    // Add message to history
+    fun addMessage(text: String, isFromUser: Boolean) {
+        val message = ChatMessage(text, isFromUser)
+        chatHistory.add(message)
+        // Save after each addition
+        scope.launch {
+            ChatHistoryManager.saveChatHistory(context, chatHistory)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Chat history display
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Bottom
+        ) {
+            items(chatHistory) { message ->
+                MessageBubble(message)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Main interaction area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -163,10 +196,10 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Robot Image (left side)
+                // Robot image
                 Image(
                     painter = painterResource(id = R.drawable.health_buddy),
-                    contentDescription = "Health Buddy Robot",
+                    contentDescription = "Health Buddy",
                     modifier = Modifier
                         .size(120.dp)
                         .padding(end = 16.dp)
@@ -177,11 +210,10 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                     contentScale = ContentScale.Fit
                 )
 
-                // Vertical stack (text bubble + button)
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Text Bubble
+                    // Welcome message
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -194,18 +226,19 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                         Text(
                             "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF000000)
+                            color = Color.Black
                         )
                     }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // Recording Button
+                    // Record button
                     Button(
                         onClick = {
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    return@Button
                                 }
 
                                 val hasAlarmPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED;
@@ -219,86 +252,122 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             } else {
                                 recorder.stop()
                                 isRecording = false
+                                addMessage(transcription, true)
+
                                 scope.launch {
                                     transcription = "Thinking..."
                                     try {
                                         val result = GeminiApiWrapper.sendWavWithHistory(
                                             cacheFile,
-                                            "Your name is Buddy, a helpful assistant." +
-                                                    "Your goal is to help the user create a regimen for healthy living. " +
-                                                    "Talk in a casual, friendly, and conversational manner, the same way you would take one on one in real life." +
-                                                    "Ask one question at a time and wait for the user's response." +
-                                                    "Before deciding to build a regimen, ask the following questions:" +
-                                                    "How old is the user? What is their gender? What is their height? What is their weight? What job do they work " +
-                                                    "(useful for identifying sedentary lifestyles)? and when are they able to commit?" +
-                                                    "Your goal is not to provide a rigorous regimen but a consistent, healthy and habitual lifestyle." +
-                                                    "You should aim to take up no more than 20 minutes per day." +
-                                                    "When building a regimen, talk back and forth with the user to figure out what time and what exercises would be best" +
-                                                    "for him or her. When you are done, build a schedule by calling a tool. " +
-                                                    "The format is, {make_workout([workout name], [workout description], [time start (24h format, like 1930 or 600)], [time end (24h as before)], days:[(Mo,Tu,We,Th,Fr,Sa,Su)]}" +
-                                                    "When you've finished a routine and now all there is is to wait for the workout, you can end the conversation with the tool call" +
-                                                    "{end_conversation()}" +
-                                                    "The user is talking to you though a speech-to-text frontend, please keep that in mind." +
-                                                    "Please also keep in mind your response will be sent through a text-to-speech backend. Please write accordingly." +
-                                                    "It is " + LocalDate.now() + ", " + LocalTime.now() + ", " + LocalDate.now().dayOfWeek)
-                                        transcription = result.ifBlank { "No response from API." }
+                                            buildPrompt(context, chatHistory) // Pass history here
+                                        )
+                                        transcription = result.ifBlank { "No response" }
+                                        addMessage(transcription, false)
                                         GoogleTtsPlayer.speak(transcription, context)
                                     } catch (e: Exception) {
-                                        transcription = "Error: ${e.localizedMessage}"
+                                        transcription = "Error: ${e.message}"
+                                        addMessage(transcription, false)
                                     }
                                 }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFA6E253),
-                            contentColor = Color(0xFF000000)
+                            contentColor = Color.Black
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(if (isRecording) "Done Talking" else "Start Talking!")
+                        Text(if (isRecording) "Stop" else "Start")
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        // Transcription Box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(
-                    width = 6.dp,
-                    color = Color(0xFF4CAF50),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .background(
-                    color = Color(0xFFA6E253),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .padding(16.dp)
-        ) {
-            if (transcription.isNotEmpty()) {
-                Column {
-                    Text(
-                        "Buddy says:",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.Black,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(transcription, color = Color.Black)
-                }
-            } else {
-                Text(
-                    "Your conversation will appear here...",
-                    color = Color.Black.copy(alpha = 0.6f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+        // Current transcription
+        if (transcription.isNotEmpty()) {
+            Text(
+                text = transcription,
+                modifier = Modifier.padding(8.dp)
+            )
         }
     }
 }
 
+private fun buildPrompt(context: Context, chatHistory: List<ChatMessage>): String {
+    val historyString = chatHistory.joinToString("\n") { msg ->
+        "${if (msg.isFromUser) "User" else "Assistant"}: ${msg.text}"
+    }
+
+    return """
+        Your name is Buddy, a helpful assistant.
+        Below is our previous conversation history:
+        $historyString
+        
+        Your goal is to help the user create a regimen for healthy living.
+        Talk in a casual, friendly, and conversational manner.
+        Ask one question at a time and wait for the user's response.
+        Before deciding to build a regimen, ask:
+        - How old is the user?
+        - What is their gender?
+        - What is their height?
+        - What is their weight?
+        - What job do they work?
+        - When are they able to commit?
+        
+        Your goal is to create a consistent, healthy lifestyle (max 20 mins/day).
+        When building a regimen, determine:
+        - Best exercises
+        - Optimal times
+
+        Use this format when done:
+        {make_workout(
+            [workout name],
+            [workout description],
+            [start time in 24h format like 1930 or 600],
+            [end time],
+            days:[(Mo,Tu,We,Th,Fr,Sa,Su)]
+            )}
+        
+        End conversation with: {end_conversation()}
+        
+        Current context:
+        Date: ${LocalDate.now()}
+        Time: ${LocalTime.now()}
+        Day: ${LocalDate.now().dayOfWeek}
+        
+        Remember:
+        - User interacts via speech-to-text
+        - Your responses will be text-to-speech
+        - Keep responses concise but natural
+    """.trimIndent()
+}
+
+
+
+
+
+@Composable
+fun MessageBubble(message: ChatMessage) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .background(
+                color = if (message.isFromUser) Color(0xFFA6E253) else Color(0xFF4CAF50),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(16.dp),
+        contentAlignment = if (message.isFromUser) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        Text(text = message.text, color = Color.Black)
+    }
+}
+
+data class ChatMessage(
+    val text: String,
+    val isFromUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 @Composable
 fun RecordingScreenPreview() {
@@ -306,4 +375,3 @@ fun RecordingScreenPreview() {
         RecordingScreen()
     }
 }
-

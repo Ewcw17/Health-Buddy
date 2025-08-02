@@ -2,6 +2,7 @@ package com.terrabull.healthbuddy.api
 
 import android.util.Base64
 import com.terrabull.healthbuddy.BuildConfig
+import com.terrabull.healthbuddy.gemini.LlmTools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -155,7 +156,73 @@ object GeminiApiWrapper {
                 .getJSONObject("content")
                 .getJSONArray("parts")
 
-            return if (parts.length() > 0) parts.getJSONObject(0).optString("text", "") else ""
+            val output = parts.getJSONObject(0).optString("text", "")
+
+            val toolRe = Regex("""\{\s*[a-zA-Z_]+\s*\([^}]*\)\s*}""")
+            val cleaned = output.replace(toolRe, "")          // delete tool-call blocks
+                .replace("""\s{2,}""".toRegex(), " ") // collapse double spaces
+                .trim()
+
+            return if (parts.length() > 0) cleaned else ""
         }
+    }
+
+    private val makeWorkoutRe = Regex(
+        """\{make_workout\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([0-9]{1,2})\s*,\s*([0-9]{1,2})\s*,\s*days:\s*\(\s*([A-Za-z,]+)\s*\)\s*}\}""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val endConvRe = Regex("""\{end_conversation\(\s*\)\s*}""", RegexOption.IGNORE_CASE)
+
+    /** Find & execute tool calls, return cleaned reply for the UI / history. */
+    suspend fun handleToolCalls(raw: String): String {
+        var text = raw
+
+        // 1) make_workout(…)
+        makeWorkoutRe.findAll(raw).forEach { m ->
+            val (name, desc, start, end, dayStr) = m.destructured
+            val days = dayStr.split(',').map { it.trim() }
+            LlmTools.makeWorkout(name.trim(), desc.trim(), start.toInt(), end.toInt(), days)
+            text = text.replace(m.value, "")
+        }
+
+        // 2) end_conversation()
+        if (endConvRe.containsMatchIn(raw)) {
+            LlmTools.endConversation()
+            text = text.replace(endConvRe, "")
+        }
+
+        return text.trim()
+    }
+
+    /**
+     * Summarise the *current* [history] with Gemini, replace the old turns with a
+     * single “system” memory note, and return the summary text.
+     *
+     * @param history  Conversation you want to squash (defaults to [inMemoryHistory]).
+     * @param maxWords Upper bound for the summary – tweak as you like.
+     *
+     * After the call:  history ==  ["system" → summary]
+     */
+    suspend fun summarizeHistory(
+        history: MutableList<ChatMessage> = inMemoryHistory,
+        maxWords: Int = 120
+    ): String = withContext(Dispatchers.IO) {
+
+        if (history.isEmpty()) return@withContext ""
+
+        // 1) Ask Gemini to summarise the existing turns
+        val instruction = "Summarise the previous conversation in ≤$maxWords words. " +
+                "Plain text only – no bullet symbols."
+        val tmp = history.toMutableList().apply {
+            add(ChatMessage("user", instruction))
+        }
+        val summary = generateGeminiReply(tmp)   // existing helper :contentReference[oaicite:3]{index=3}
+
+        // 2) Replace the long log with one compact memory line
+        history.removeIf { it.role != "system summary" }
+        history += ChatMessage("system summary", summary)
+
+        summary
     }
 }

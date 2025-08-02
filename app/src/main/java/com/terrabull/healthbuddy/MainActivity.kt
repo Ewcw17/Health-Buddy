@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    RecordingScreen(modifier = Modifier.padding(innerPadding))
+                    RecordingScreen(modifier = Modifier.padding(innerPadding), sendNotification = {sendNotification()})
                 }
             }
         }
@@ -83,8 +83,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     private fun sendNotification() {
-        Log.d("TAG", "IN FUCNTION")
+
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("YOU HAVENT BEEN SLEEPING ENOUGH!!!")
@@ -106,7 +107,7 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun RecordingScreen(modifier: Modifier = Modifier) {
+fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit) {
     val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
     var transcription by remember { mutableStateOf("") }
@@ -203,6 +204,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                     // Recording Button
                     Button(
                         onClick = {
+                            sendNotification()
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -299,11 +301,12 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     }
 }
 
+//@Composable
+//fun RecordingScreenPreview() {
+//    HealthBuddyTheme {
+//        RecordingScreen()
+//    }
+//}
 
-@Composable
-fun RecordingScreenPreview() {
-    HealthBuddyTheme {
-        RecordingScreen()
-    }
-}
+
 

@@ -34,7 +34,7 @@ object GeminiApiWrapper {
     private const val TEXT_API_URL   =
         "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s"
 
-    private const val SAMPLE_RATE_HZ = 16_000
+    private const val SAMPLE_RATE_HZ = 48_000
     private const val LANGUAGE_CODE  = "en-US"
 
     private val API_KEY     = BuildConfig.GEMINI_API_KEY
@@ -68,7 +68,7 @@ object GeminiApiWrapper {
     private fun buildSttRequestBody(audioBase64: String): String =
         JSONObject().apply {
             put("config", JSONObject().apply {
-                put("encoding", "OGG_OPUS")        // ← was LINEAR16 :contentReference[oaicite:1]{index=1}
+                put("encoding", "OGG_OPUS")
                 put("sampleRateHertz", SAMPLE_RATE_HZ)
                 put("languageCode", LANGUAGE_CODE)
             })
@@ -158,24 +158,24 @@ object GeminiApiWrapper {
 
             val output = parts.getJSONObject(0).optString("text", "")
 
-            val toolRe = Regex("""\{\s*[a-zA-Z_]+\s*\([^}]*\)\s*}""")
-            val cleaned = output.replace(toolRe, "")          // delete tool-call blocks
-                .replace("""\s{2,}""".toRegex(), " ") // collapse double spaces
-                .trim()
+            val cleaned = output.trim()
 
             return if (parts.length() > 0) cleaned else ""
         }
     }
 
-    private val makeWorkoutRe = Regex(
-        """\{make_workout\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([0-9]{1,2})\s*,\s*([0-9]{1,2})\s*,\s*days:\s*\(\s*([A-Za-z,]+)\s*\)\s*}\}""",
-        RegexOption.IGNORE_CASE
-    )
 
-    private val endConvRe = Regex("""\{end_conversation\(\s*\)\s*}""", RegexOption.IGNORE_CASE)
 
     /** Find & execute tool calls, return cleaned reply for the UI / history. */
     suspend fun handleToolCalls(raw: String): String {
+
+        val makeWorkoutRe = Regex(
+            """\{make_workout\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([0-9]{1,2})\s*,\s*([0-9]{1,2})\s*,\s*days:\s*\(\s*([A-Za-z,]+)\s*\)\s*}\}""",
+            RegexOption.IGNORE_CASE
+        )
+
+        val endConvRe = Regex("""\{end_conversation\(\s*\)\s*\}""", RegexOption.IGNORE_CASE)
+
         var text = raw
 
         // 1) make_workout(…)

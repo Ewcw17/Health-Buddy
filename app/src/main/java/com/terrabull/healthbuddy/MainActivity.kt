@@ -48,6 +48,7 @@ import java.time.LocalTime
 // For animations
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.example.recorder.AudioRecorder
 
 class MainActivity : ComponentActivity() {
 
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    RecordingScreen(modifier = Modifier.padding(innerPadding), sendNotification = {sendNotification()})
+                    RecordingScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -82,9 +83,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private fun sendNotification() {
-
+        Log.d("TAG", "IN FUCNTION")
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("YOU HAVENT BEEN SLEEPING ENOUGH!!!")
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit) {
+fun RecordingScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
     var displayedText by remember { mutableStateOf("") }
@@ -131,8 +131,7 @@ fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit)
     )
 
     // Audio setup
-    val cacheFile = remember { File(context.cacheDir, "recording.wav") }
-    val recorder = remember { PcmWavRecorder(cacheFile) }
+    val recorder = remember { AudioRecorder(context) }
 
     // Permissions
     var permissionGranted by remember {
@@ -229,7 +228,6 @@ fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit)
                     // Record button
                     Button(
                         onClick = {
-                            sendNotification()
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -245,14 +243,14 @@ fun RecordingScreen(modifier: Modifier = Modifier, sendNotification: () -> Unit)
                                 isRecording = true
                                 displayedText = ""
                             } else {
-                                recorder.stop()
+                                val recording = recorder.stop()
                                 isRecording = false
 
                                 scope.launch {
                                     displayedText = "Thinking..."
                                     try {
-                                        val result = GeminiApiWrapper.sendWavWithHistory(
-                                            cacheFile,
+                                        val result = GeminiApiWrapper.SendAudioWithHistory(
+                                            recording,
                                             getSetupPrompt() // Pass history here
                                         )
                                         addMessage(result.first, true)
@@ -344,10 +342,10 @@ data class ChatMessage(
     val isFromUser: Boolean,
     val timestamp: Long = System.currentTimeMillis()
 )
-//@Composable
-//fun RecordingScreenPreview() {
-//    HealthBuddyTheme {
-//        RecordingScreen()
-//    }
-//}
 
+@Composable
+fun RecordingScreenPreview() {
+    HealthBuddyTheme {
+        RecordingScreen()
+    }
+}

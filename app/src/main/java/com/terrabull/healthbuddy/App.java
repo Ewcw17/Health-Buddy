@@ -1,4 +1,4 @@
 package com.terrabull.healthbuddy;
 
-public class App: healthbuddy {
-}
+//public class App: healthbuddy {
+//}

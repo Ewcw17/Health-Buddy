@@ -111,7 +111,30 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
 
                 // Recording Button (now color-matched with bubble)
                 Button(
-                    onClick = { /* ... existing click handler ... */ },
+                    onClick = { if (!isRecording) {
+                        // start recording
+                        if (!permissionGranted) {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            return@Button
+                        }
+                        recorder.start()
+                        isRecording = true
+                        transcription = ""
+                    } else {
+                        // stop and send to Gemini
+                        recorder.stop()
+                        isRecording = false
+
+                        scope.launch {
+                            transcription = "Thinking…"
+                            try {
+                                val result = GeminiApiWrapper.sendWavWithHistory(cacheFile, "Your name is Buddy, a helpful assistant.")
+                                transcription = result.ifBlank { "No response from API." }
+                            } catch (e: Exception) {
+                                transcription = "Error: ${e.localizedMessage}"
+                            }
+                        }
+                    } },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary

@@ -36,8 +36,7 @@ import android.os.Build
 import android.app.NotificationManager
 import android.app.NotificationChannel
 import android.content.Context
-
-// Added Imports
+import android.util.Log
 import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -59,6 +58,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        createNotificationChannel()
+        sendNotification()
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -66,9 +67,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
-        createNotificationChannel()
-        sendNotification()
 
     }
 
@@ -86,11 +84,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendNotification() {
-
+        Log.d("TAG", "IN FUCNTION")
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Example Title")
-            .setContentText("Example Description")
+            .setContentTitle("YOU HAVENT BEEN SLEEPING ENOUGH!!!")
+            .setContentText("Heyyyy uhhh, wouldn't it be cute if you got some sleep?")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
 
         with(NotificationManagerCompat.from(this)) {
@@ -99,7 +97,6 @@ class MainActivity : ComponentActivity() {
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-
                 return@with
             }
             notify(notificationId, builder.build())

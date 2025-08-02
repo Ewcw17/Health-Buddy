@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,7 +27,16 @@ import com.terrabull.healthbuddy.api.GeminiApiWrapper
 import com.terrabull.healthbuddy.ui.theme.HealthBuddyTheme
 import kotlinx.coroutines.launch
 import java.io.File
-
+// Added Imports
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +57,20 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var isRecording by remember { mutableStateOf(false) }
     var transcription by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    // Animation state
+    val infiniteTransition = rememberInfiniteTransition()
+    val rockAngle by infiniteTransition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 2000,
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
 
     // where we'll store the recording
     val cacheFile = remember { File(context.cacheDir, "recording.wav") }
@@ -82,10 +106,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 contentDescription = "Health Buddy Robot",
                 modifier = Modifier
                     .size(120.dp)
-                    .padding(end = 16.dp),
+                    .padding(end = 16.dp)
+                    .graphicsLayer {
+                        rotationZ = rockAngle
+                        transformOrigin = TransformOrigin(0.5f, 1f) // Pivot at bottom center
+                    },
                 contentScale = ContentScale.Fit
             )
-
             // Vertical stack (text bubble + button)
             Column(
                 modifier = Modifier.weight(1f)

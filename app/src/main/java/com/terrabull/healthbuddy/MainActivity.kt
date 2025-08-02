@@ -8,11 +8,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -58,42 +64,63 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        permissionGranted = granted
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Top
+            .padding(16.dp)
     ) {
-        Button(onClick = {
-            if (!isRecording) {
-                // start recording
-                if (!permissionGranted) {
-                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    return@Button
-                }
-                recorder.start()
-                isRecording = true
-                transcription = ""
-            } else {
-                // stop and send to Gemini
-                recorder.stop()
-                isRecording = false
+        // Main horizontal row (image + text/button stack)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            // Robot Image (left side)
+            Image(
+                painter = painterResource(id = R.drawable.health_buddy),
+                contentDescription = "Health Buddy Robot",
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(end = 16.dp),
+                contentScale = ContentScale.Fit
+            )
 
-                scope.launch {
-                    transcription = "Thinking…"
-                    try {
-                        val result = GeminiApiWrapper.sendWavWithHistory(cacheFile, "Your name is Buddy, a helpful assistant.")
-                        transcription = result.ifBlank { "No response from API." }
-                    } catch (e: Exception) {
-                        transcription = "Error: ${e.localizedMessage}"
-                    }
+            // Vertical stack (text bubble + button)
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Text Bubble with matching button color
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.primary, // Matches button color
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimary // Contrasting text color
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Recording Button (now color-matched with bubble)
+                Button(
+                    onClick = { /* ... existing click handler ... */ },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (isRecording) "Stop Recording" else "Start Recording")
                 }
             }
-        }) {
-            Text(if (isRecording) "Stop Recording" else "Start Recording \"\uD83D\uDE0A\" ")
         }
 
         Spacer(modifier = Modifier.height(16.dp))

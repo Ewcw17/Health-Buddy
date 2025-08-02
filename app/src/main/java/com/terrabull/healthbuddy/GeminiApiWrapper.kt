@@ -30,15 +30,15 @@ object GeminiApiWrapper {
 
     // ─────────────── Config constants ────────────────
     private const val SPEECH_API_URL = "https://speech.googleapis.com/v1/speech:recognize"
-    private const val MODEL_NAME     = "gemini-2.5-flash"   // change if needed
-    private const val TEXT_API_URL   =
+    private const val MODEL_NAME = "gemini-2.5-flash"   // change if needed
+    private const val TEXT_API_URL =
         "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s"
 
     private const val SAMPLE_RATE_HZ = 16_000
-    private const val LANGUAGE_CODE  = "en-US"
+    private const val LANGUAGE_CODE = "en-US"
 
-    private val API_KEY     = BuildConfig.GEMINI_API_KEY
-    private val httpClient  = OkHttpClient()
+    private val API_KEY = BuildConfig.GEMINI_API_KEY
+    private val httpClient = OkHttpClient()
 
     // ─────────────────── High‑level helper ───────────────────
     /**
@@ -135,7 +135,7 @@ object GeminiApiWrapper {
         history: List<ChatMessage>,
         systemPrompt: String? = null
     ): String {
-        val url  = TEXT_API_URL.format(MODEL_NAME, API_KEY)
+        val url = TEXT_API_URL.format(MODEL_NAME, API_KEY)
         val body = buildGeminiChatRequestBody(history, systemPrompt)
             .toRequestBody("application/json; charset=utf-8".toMediaType())
 
@@ -158,24 +158,27 @@ object GeminiApiWrapper {
 
             val output = parts.getJSONObject(0).optString("text", "")
 
-            val toolRe = Regex("""\{\s*[a-zA-Z_]+\s*\([^}]*\)\s*}""")
-            val cleaned = output.replace(toolRe, "")          // delete tool-call blocks
-                .replace("""\s{2,}""".toRegex(), " ") // collapse double spaces
+
+            val cleaned = output.replace(Regex("""\{[^}]*\}"""), " ") // strip { ... }
+                .replace("\\s+".toRegex(), " ") // collapse whitespace
                 .trim()
 
             return if (parts.length() > 0) cleaned else ""
         }
     }
 
-    private val makeWorkoutRe = Regex(
-        """\{make_workout\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([0-9]{1,2})\s*,\s*([0-9]{1,2})\s*,\s*days:\s*\(\s*([A-Za-z,]+)\s*\)\s*}\}""",
-        RegexOption.IGNORE_CASE
-    )
-
-    private val endConvRe = Regex("""\{end_conversation\(\s*\)\s*}""", RegexOption.IGNORE_CASE)
 
     /** Find & execute tool calls, return cleaned reply for the UI / history. */
     suspend fun handleToolCalls(raw: String): String {
+
+        val makeWorkoutRe = Regex(
+            """\{make_workout\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([0-9]{1,2})\s*,\s*([0-9]{1,2})\s*,\s*days:\s*\(\s*([A-Za-z,]+)\s*\)\s*}\}""",
+            RegexOption.IGNORE_CASE
+        )
+
+        val endConvRe = Regex("""\{end_conversation\(\s*\)\s*}""", RegexOption.IGNORE_CASE)
+
+
         var text = raw
 
         // 1) make_workout(…)
@@ -217,7 +220,8 @@ object GeminiApiWrapper {
         val tmp = history.toMutableList().apply {
             add(ChatMessage("user", instruction))
         }
-        val summary = generateGeminiReply(tmp)   // existing helper :contentReference[oaicite:3]{index=3}
+        val summary =
+            generateGeminiReply(tmp)   // existing helper :contentReference[oaicite:3]{index=3}
 
         // 2) Replace the long log with one compact memory line
         history.removeIf { it.role != "system summary" }

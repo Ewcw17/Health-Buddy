@@ -2,6 +2,8 @@ package com.terrabull.healthbuddy.api
 
 import android.util.Base64
 import com.terrabull.healthbuddy.BuildConfig
+import com.terrabull.healthbuddy.ChatHistoryManager
+import com.terrabull.healthbuddy.ChatMessage
 import com.terrabull.healthbuddy.gemini.LlmTools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +19,7 @@ import java.util.Collections
 object GeminiApiWrapper {
 
     // ─────────────── Public model ────────────────
-    data class ChatMessage(val role: String, val text: String)
+
 
     /** Thread‑safe single‑process default history.  You *may* ignore it and
      *  provide your own list on each call if you need per‑conversation state

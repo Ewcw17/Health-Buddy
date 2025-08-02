@@ -7,18 +7,20 @@ import java.io.*
 
 object ChatHistoryManager {
     private const val FILE_NAME = "chat_history.json"
+
+    private const val BACK_FILE_NAME = "backend_chat_history.json"
     private val gson = Gson()
     private const val MAX_HISTORY_ITEMS = 20000
 
 
-    fun saveChatHistory(context: Context, history: List<ChatMessage>) {
+    fun saveChatHistory(context: Context, history: List<ChatMessage>, isBackend: Boolean = false) {
         try {
             // Keep only the most recent messages
             val recentHistory = if (history.size > MAX_HISTORY_ITEMS) {
                 history.takeLast(MAX_HISTORY_ITEMS)
             } else history
 
-            context.openFileOutput(FILE_NAME, Context.MODE_PRIVATE).use {
+            context.openFileOutput(if(isBackend) BACK_FILE_NAME else FILE_NAME, Context.MODE_PRIVATE).use {
                 it.write(gson.toJson(recentHistory).toByteArray())
             }
         } catch (e: Exception) {
@@ -26,12 +28,12 @@ object ChatHistoryManager {
         }
     }
 
-    fun loadChatHistory(context: Context): List<ChatMessage> {
+    fun loadChatHistory(context: Context, isBackend: Boolean = false): List<ChatMessage> {
         return try {
-            val file = File(context.filesDir, FILE_NAME)
+            val file = File(context.filesDir, if(isBackend) BACK_FILE_NAME else FILE_NAME)
             if (!file.exists()) return emptyList()
 
-            context.openFileInput(FILE_NAME).bufferedReader().use { reader ->
+            context.openFileInput(if(isBackend) BACK_FILE_NAME else FILE_NAME).bufferedReader().use { reader ->
                 val type = object : TypeToken<List<ChatMessage>>() {}.type
                 gson.fromJson(reader, type) ?: emptyList()
             }

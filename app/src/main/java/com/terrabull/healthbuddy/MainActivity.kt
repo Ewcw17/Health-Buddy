@@ -49,6 +49,7 @@ import java.time.LocalTime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.example.recorder.AudioRecorder
+import com.terrabull.healthbuddy.ChatHistoryManager.saveChatHistory
 
 class MainActivity : ComponentActivity() {
 
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
         createNotificationChannel()
         sendNotification()
@@ -117,6 +119,9 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         addAll(ChatHistoryManager.loadChatHistory(context))
     }}
 
+    if(GeminiApiWrapper.inMemoryHistory.isEmpty())
+        ChatHistoryManager.loadChatHistory(context, true)
+
 
 
     // Animation for robot
@@ -131,7 +136,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     )
 
     // Audio setup
-    val recorder = remember { AudioRecorder(context) }
+    var recorder = remember { AudioRecorder(context) }
 
     // Permissions
     var permissionGranted by remember {
@@ -149,8 +154,8 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     }
 
     // Add message to history
-    fun addMessage(text: String, isFromUser: Boolean) {
-        val message = ChatMessage(text, isFromUser)
+    fun addMessage(role: String, text: String) {
+        val message = ChatMessage(role, text)
         chatHistory.add(message)
         // Save after each addition
         scope.launch {
@@ -239,6 +244,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                     permissionLauncher.launch(Manifest.permission.SCHEDULE_EXACT_ALARM)
                                 }
 
+                                recorder = AudioRecorder(context);
                                 recorder.start()
                                 isRecording = true
                                 displayedText = ""
@@ -253,14 +259,16 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                             recording,
                                             getSetupPrompt() // Pass history here
                                         )
-                                        addMessage(result.first, true)
+                                        addMessage("user", result.first)
                                         displayedText = result.second.ifBlank { "No response" }
-                                        addMessage(displayedText, false)
+                                        addMessage("model", displayedText)
                                         GoogleTtsPlayer.speak(displayedText, context)
                                     } catch (e: Exception) {
                                         displayedText = "Error: ${e.message}"
-                                        addMessage(displayedText, false)
+                                        addMessage("model", displayedText)
                                     }
+                                    saveChatHistory(context, chatHistory, false)
+                                    saveChatHistory(context, GeminiApiWrapper.inMemoryHistory, true)
                                 }
                             }
                         },
@@ -327,21 +335,15 @@ fun MessageBubble(message: ChatMessage) {
             .fillMaxWidth()
             .padding(8.dp)
             .background(
-                color = if (message.isFromUser) Color(0xFFA6E253) else Color(0xFF4CAF50),
+                color = if (message.role == "user") Color(0xFFA6E253) else Color(0xFF4CAF50),
                 shape = RoundedCornerShape(16.dp)
             )
             .padding(16.dp),
-        contentAlignment = if (message.isFromUser) Alignment.CenterEnd else Alignment.CenterStart
+        contentAlignment = if (message.role == "user") Alignment.CenterEnd else Alignment.CenterStart
     ) {
         Text(text = message.text, color = Color.Black)
     }
 }
-
-data class ChatMessage(
-    val text: String,
-    val isFromUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
-)
 
 @Composable
 fun RecordingScreenPreview() {

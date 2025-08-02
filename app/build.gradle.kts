@@ -1,4 +1,12 @@
 import org.gradle.kotlin.dsl.implementation
+import java.util.Properties
+
+val envFile = rootProject.file(".env")
+val env = Properties().apply {
+    if (envFile.exists()) {
+        envFile.inputStream().use { load(it) }
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,6 +26,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val key: String = env.getProperty("GEMINI_API_KEY", "")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$key\"")
     }
 
     buildTypes {
@@ -38,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true;
     }
 }
 

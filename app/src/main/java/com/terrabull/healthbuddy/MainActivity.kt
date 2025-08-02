@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.terrabull.healthbuddy.api.GeminiApiWrapper
 import com.terrabull.healthbuddy.ui.theme.HealthBuddyTheme
 import kotlinx.coroutines.launch
 import java.io.File
@@ -40,11 +41,12 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var isRecording by remember { mutableStateOf(false) }
     var transcription by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    // where we'll store the recording
     val cacheFile = remember { File(context.cacheDir, "recording.wav") }
     val recorder = remember { PcmWavRecorder(cacheFile) }
 
-
-    // Permission state and launcher
+    // audio-permission handling
     var permissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -67,7 +69,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     ) {
         Button(onClick = {
             if (!isRecording) {
-                // Ensure permission before starting
+                // start recording
                 if (!permissionGranted) {
                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     return@Button
@@ -76,13 +78,26 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 isRecording = true
                 transcription = ""
             } else {
+                // stop and send to Gemini
                 recorder.stop()
                 isRecording = false
+
+                scope.launch {
+                    transcription = "Thinking…"
+                    try {
+                        val result = GeminiApiWrapper.sendWavForResponse(cacheFile)
+                        transcription = result.ifBlank { "No response from API." }
+                    } catch (e: Exception) {
+                        transcription = "Error: ${e.localizedMessage}"
+                    }
+                }
             }
         }) {
             Text(if (isRecording) "Stop Recording" else "Start Recording")
         }
+
         Spacer(modifier = Modifier.height(16.dp))
+
         if (transcription.isNotEmpty()) {
             Text("Transcription:", style = MaterialTheme.typography.titleMedium)
             Text(transcription)

@@ -54,13 +54,13 @@ object GeminiApiWrapper {
         wavFile: File,
         systemPrompt: String? = null,
         history: MutableList<ChatMessage> = inMemoryHistory
-    ): String = withContext(Dispatchers.IO) {
+    ): Pair<String, String> = withContext(Dispatchers.IO) {
         val userTranscript = transcribeSpeech(wavFile)
         history += ChatMessage("user", userTranscript)
 
         val reply = generateGeminiReply(history, systemPrompt)
         history += ChatMessage("model", reply)
-        reply
+        Pair(userTranscript, reply)
     }
 
     // ─────────────────── Speech‑to‑Text ───────────────────

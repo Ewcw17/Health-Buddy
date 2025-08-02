@@ -8,7 +8,7 @@ import java.io.*
 object ChatHistoryManager {
     private const val FILE_NAME = "chat_history.json"
     private val gson = Gson()
-    private const val MAX_HISTORY_ITEMS = 20
+    private const val MAX_HISTORY_ITEMS = 20000
 
 
     fun saveChatHistory(context: Context, history: List<ChatMessage>) {

@@ -11,7 +11,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -22,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -35,10 +33,7 @@ import java.io.File
 import android.os.Build
 import android.app.NotificationManager
 import android.app.NotificationChannel
-import android.content.Context
 import android.util.Log
-import androidx.compose.animation.core.InfiniteTransition
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
@@ -51,10 +46,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 // For animations
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.graphics.graphicsLayer
 
 class MainActivity : ComponentActivity() {
 
@@ -115,7 +108,7 @@ class MainActivity : ComponentActivity() {
 fun RecordingScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
-    var transcription by remember { mutableStateOf("") }
+    var displayedText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     // Chat history state
@@ -248,25 +241,25 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
 
                                 recorder.start()
                                 isRecording = true
-                                transcription = ""
+                                displayedText = ""
                             } else {
                                 recorder.stop()
                                 isRecording = false
-                                addMessage(transcription, true)
 
                                 scope.launch {
-                                    transcription = "Thinking..."
+                                    displayedText = "Thinking..."
                                     try {
                                         val result = GeminiApiWrapper.sendWavWithHistory(
                                             cacheFile,
-                                            buildPrompt(context, chatHistory) // Pass history here
+                                            getSetupPrompt() // Pass history here
                                         )
-                                        transcription = result.ifBlank { "No response" }
-                                        addMessage(transcription, false)
-                                        GoogleTtsPlayer.speak(transcription, context)
+                                        addMessage(result.first, true)
+                                        displayedText = result.second.ifBlank { "No response" }
+                                        addMessage(displayedText, false)
+                                        GoogleTtsPlayer.speak(displayedText, context)
                                     } catch (e: Exception) {
-                                        transcription = "Error: ${e.message}"
-                                        addMessage(transcription, false)
+                                        displayedText = "Error: ${e.message}"
+                                        addMessage(displayedText, false)
                                     }
                                 }
                             }
@@ -282,29 +275,17 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
-
-        // Current transcription
-        if (transcription.isNotEmpty()) {
-            Text(
-                text = transcription,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
     }
 }
 
-private fun buildPrompt(context: Context, chatHistory: List<ChatMessage>): String {
-    val historyString = chatHistory.joinToString("\n") { msg ->
-        "${if (msg.isFromUser) "User" else "Assistant"}: ${msg.text}"
-    }
+private fun getSetupPrompt(): String {
 
     return """
         Your name is Buddy, a helpful assistant.
-        Below is our previous conversation history:
-        $historyString
         
         Your goal is to help the user create a regimen for healthy living.
         Talk in a casual, friendly, and conversational manner.
+        Your responses should be no more than one or two sentences long.
         Ask one question at a time and wait for the user's response.
         Before deciding to build a regimen, ask:
         - How old is the user?
@@ -319,15 +300,8 @@ private fun buildPrompt(context: Context, chatHistory: List<ChatMessage>): Strin
         - Best exercises
         - Optimal times
 
-        Use this format when done:
-        {make_workout(
-            [workout name],
-            [workout description],
-            [start time in 24h format like 1930 or 600],
-            [end time],
-            days:[(Mo,Tu,We,Th,Fr,Sa,Su)]
-            )}
-        
+        Here are the available tools:
+        Make a workout with: {make_workout([workout name],[workout description],[start time in 24h format like 1930 or 600],[end time],days:[(Mo,Tu,We,Th,Fr,Sa,Su)])}
         End conversation with: {end_conversation()}
         
         Current context:

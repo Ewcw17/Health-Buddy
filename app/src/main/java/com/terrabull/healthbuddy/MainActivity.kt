@@ -17,7 +17,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.terrabull.healthbuddy.ui.theme.HealthBuddyTheme
-import com.whispercppdemo.api.WhisperApi
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -43,7 +42,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val cacheFile = remember { File(context.cacheDir, "recording.wav") }
     val recorder = remember { PcmWavRecorder(cacheFile) }
-    val whisperApi = remember { WhisperApi(context) }
 
 
     // Permission state and launcher
@@ -59,10 +57,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         permissionGranted = granted
-    }
-
-    LaunchedEffect(Unit) {
-        whisperApi.initialize()
     }
 
     Column(
@@ -84,9 +78,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
             } else {
                 recorder.stop()
                 isRecording = false
-                scope.launch {
-                    transcription = whisperApi.transcribe(cacheFile)
-                }
             }
         }) {
             Text(if (isRecording) "Stop Recording" else "Start Recording")

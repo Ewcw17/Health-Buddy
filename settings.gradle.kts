@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "Health Buddy"
 include(":app")
-include(":whisperlib")

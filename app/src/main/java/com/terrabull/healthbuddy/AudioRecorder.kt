@@ -3,6 +3,7 @@ package com.example.recorder   // same package as before
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import java.io.File
@@ -30,6 +31,7 @@ class AudioRecorder(private val context: Context) {
      */
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     fun start(): File {
+        Log.d("Audio", "Recording Starting")
         check(state == State.Idle) { "start() called, but recorder is already in use." }
 
         // Target filename:  rec_20250802_194233.opus
@@ -61,7 +63,9 @@ class AudioRecorder(private val context: Context) {
 
     /** Stops recording and returns the finished file. */
     fun stop(): File {
-        check(state == State.Recording) { "stop() called while not recording." }
+        Log.d("Audio", "Recording Ending")
+        if(state != State.Recording)
+            return File("")
         recorder?.apply { stop() }
         state = State.Finished(outputFile!!)
         return outputFile!!

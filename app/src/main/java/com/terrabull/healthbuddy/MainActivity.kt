@@ -36,11 +36,15 @@ import android.app.NotificationManager
 import android.app.NotificationChannel
 import android.content.Context
 import android.util.Log
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import com.terrabull.healthbuddy.api.GoogleTtsPlayer
@@ -60,12 +64,19 @@ import android.database.Cursor
 import android.net.Uri
 import java.util.Calendar
 import java.util.TimeZone
+import androidx.compose.animation.AnimatedContent
+
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+
 
 // For animations
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.recorder.AudioRecorder
 import com.terrabull.healthbuddy.ChatHistoryManager.saveChatHistory
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -80,6 +91,7 @@ class MainActivity : ComponentActivity() {
         addEventToDefaultCalendar()
 //        scheduleNotificationWorker(45, "FIRST NOTIFICATION")
 //        scheduleNotificationWorker(25, "ZEROTH NOTIFICATION")
+        //scheduleNotificationWorker(60, "Hey, your workout's about to begin in ten minutes! Are you ready?")
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -87,7 +99,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
     }
 
     private fun createNotificationChannel() {
@@ -191,6 +202,8 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var displayedText by remember { mutableStateOf("") }
     var showClearDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var botState by remember { mutableIntStateOf(0) }
+    val listState = rememberLazyListState()
 
     // Chat history state
     val chatHistory = remember { mutableStateListOf<ChatMessage>().apply {
@@ -200,6 +213,43 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     if(GeminiApiWrapper.inMemoryHistory.isEmpty())
         GeminiApiWrapper.inMemoryHistory.addAll(ChatHistoryManager.loadChatHistory(context, true))
 
+    // Motivational messages
+    val motivationalMessages = remember {
+        listOf(
+            "You're amazing! \uD83D\uDCAA",
+            "Never give up! \uD83D\uDE4C",
+            "You've got this! \uD83D\uDCAA",
+            "Small steps lead to big results! \uD83D\uDE80",
+            "Your health journey matters! \uD83C\uDF1F",
+            "Believe in yourself! \uD83E\uDD29",
+            "Progress, not perfection! \uD83D\uDCC8",
+            "You're stronger than you think! \uD83E\uDD47"
+        )
+    }
+
+    // Current welcome message state
+    var welcomeMessage by remember { mutableStateOf(
+        "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A"
+    )}
+
+    // Timer to rotate messages
+    LaunchedEffect(Unit) {
+        // Wait 30 seconds before changing from initial message
+        delay(30000L)
+
+        // Change message every 20 seconds
+        while (true) {
+            welcomeMessage = motivationalMessages.random()
+            delay(20000L)
+        }
+    }
+
+    // Auto-scroll to bottom when new messages arrive
+    LaunchedEffect(chatHistory.size) {
+        if (chatHistory.isNotEmpty()) {
+            listState.animateScrollToItem(chatHistory.size - 1)
+        }
+    }
     // Animation for robot
     val infiniteTransition = rememberInfiniteTransition()
     val rockAngle by infiniteTransition.animateFloat(
@@ -238,8 +288,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
             ChatHistoryManager.saveChatHistory(context, chatHistory)
         }
     }
-
-    fun ChatHistoryManager.clearChatHistory(context: Context) {}
 
     // Clear chat history function
     fun clearChatHistory() {
@@ -283,6 +331,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         // Chat history display
         LazyColumn(
             modifier = Modifier.weight(1f),
+            state = listState,
             verticalArrangement = Arrangement.Bottom
         ) {
             items(chatHistory) { message ->
@@ -333,11 +382,19 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             )
                             .padding(12.dp)
                     ) {
-                        Text(
-                            "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Black
-                        )
+                        AnimatedContent(
+                            targetState = welcomeMessage,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(300)) togetherWith
+                                        fadeOut(animationSpec = tween(300))
+                            }
+                        ) { targetMessage ->
+                            Text(
+                                targetMessage,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.Black
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -348,7 +405,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    return@Button
                                 }
 
                                 val hasAlarmPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED;
@@ -356,11 +412,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                     permissionLauncher.launch(Manifest.permission.SCHEDULE_EXACT_ALARM)
                                 }
 
-                                recorder = AudioRecorder(context);
+                                Log.d("TAG", "START")
+
                                 recorder.start()
                                 isRecording = true
                                 displayedText = ""
                             } else {
+                                Log.d("TAG", "STOP")
                                 val recording = recorder.stop()
                                 isRecording = false
 
@@ -370,11 +428,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                         val result = GeminiApiWrapper.SendAudioWithHistory(
                                             recording,
                                             getSetupPrompt()
+                                            //getWorkoutPrompt()
                                         )
                                         addMessage("user", result.first)
                                         displayedText = result.second.ifBlank { "No response" }
                                         addMessage("model", displayedText)
                                         GoogleTtsPlayer.speak(displayedText, context)
+                                        recorder.cancel()
                                     } catch (e: Exception) {
                                         displayedText = "Error: ${e.message}"
                                         addMessage("model", displayedText)
@@ -451,24 +511,61 @@ private fun getSetupPrompt(): String {
     """.trimIndent()
 }
 
+private fun getWorkoutPrompt(): String {
+
+    return """
+        Your name is Buddy, a helpful assistant.
+        
+        Your goal is to help the user create a regimen for healthy living.
+        Talk in a casual, friendly, and conversational manner.
+        Your responses should be no more than one or two sentences long.
+        Ask one question at a time and wait for the user's response.
+        
+        Your goal now is to guide the user through the exercises you have previously lined out.
+        Take feedback back from the user to soften or harden the exercise based on 
+        
+        Remember:
+        - User interacts via speech-to-text
+        - Your responses will be text-to-speech
+        - Keep responses concise but natural
+    """.trimIndent()
+}
+
 
 
 
 
 @Composable
 fun MessageBubble(message: ChatMessage) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .background(
-                color = if (message.role == "user") Color(0xFFA6E253) else Color(0xFF4CAF50),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(16.dp),
-        contentAlignment = if (message.role == "user") Alignment.CenterEnd else Alignment.CenterStart
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = if (message.role == "user") Alignment.End else Alignment.Start
     ) {
-        Text(text = message.text, color = Color.Black)
+        // Sender name
+        Text(
+            text = if (message.role == "user") "You" else "Buddy",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Gray,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        // Message bubble
+        Box(
+            modifier = Modifier
+                .background(
+                    color = if (message.role == "user") Color(0xFFA6E253) else Color(0xFF4CAF50),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Text(
+                text = message.text,
+                color = Color.Black,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 

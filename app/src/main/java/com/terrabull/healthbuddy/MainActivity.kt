@@ -35,11 +35,15 @@ import android.app.NotificationManager
 import android.app.NotificationChannel
 import android.content.Context
 import android.util.Log
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import com.terrabull.healthbuddy.api.GoogleTtsPlayer
@@ -51,6 +55,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkRequest
 import androidx.work.Data
 import java.util.concurrent.TimeUnit
+import androidx.compose.animation.AnimatedContent
+
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 
 
 // For animations
@@ -59,6 +67,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.recorder.AudioRecorder
 import com.terrabull.healthbuddy.ChatHistoryManager.saveChatHistory
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -144,6 +153,37 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
 
     if(GeminiApiWrapper.inMemoryHistory.isEmpty())
         GeminiApiWrapper.inMemoryHistory.addAll(ChatHistoryManager.loadChatHistory(context, true))
+
+    // Motivational messages
+    val motivationalMessages = remember {
+        listOf(
+            "You're amazing! \uD83D\uDCAA",
+            "Never give up! \uD83D\uDE4C",
+            "You've got this! \uD83D\uDCAA",
+            "Small steps lead to big results! \uD83D\uDE80",
+            "Your health journey matters! \uD83C\uDF1F",
+            "Believe in yourself! \uD83E\uDD29",
+            "Progress, not perfection! \uD83D\uDCC8",
+            "You're stronger than you think! \uD83E\uDD47"
+        )
+    }
+
+    // Current welcome message state
+    var welcomeMessage by remember { mutableStateOf(
+        "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A"
+    )}
+
+    // Timer to rotate messages
+    LaunchedEffect(Unit) {
+        // Wait 30 seconds before changing from initial message
+        delay(30000L)
+
+        // Change message every 20 seconds
+        while (true) {
+            welcomeMessage = motivationalMessages.random()
+            delay(20000L)
+        }
+    }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(chatHistory.size) {
@@ -283,11 +323,19 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             )
                             .padding(12.dp)
                     ) {
-                        Text(
-                            "Hey! I'm Buddy, your Health Assistant. Let's talk! \uD83D\uDE0A",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Black
-                        )
+                        AnimatedContent(
+                            targetState = welcomeMessage,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(300)) togetherWith
+                                        fadeOut(animationSpec = tween(300))
+                            }
+                        ) { targetMessage ->
+                            Text(
+                                targetMessage,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.Black
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(16.dp))

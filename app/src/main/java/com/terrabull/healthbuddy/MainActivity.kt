@@ -33,6 +33,7 @@ import java.io.File
 import android.os.Build
 import android.app.NotificationManager
 import android.app.NotificationChannel
+import android.content.Context
 import android.util.Log
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -131,6 +132,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
     var displayedText by remember { mutableStateOf("") }
+    var showClearDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Chat history state
@@ -139,9 +141,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     }}
 
     if(GeminiApiWrapper.inMemoryHistory.isEmpty())
-        ChatHistoryManager.loadChatHistory(context, true)
-
-
+        GeminiApiWrapper.inMemoryHistory.addAll(ChatHistoryManager.loadChatHistory(context, true))
 
     // Animation for robot
     val infiniteTransition = rememberInfiniteTransition()
@@ -180,6 +180,42 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         scope.launch {
             ChatHistoryManager.saveChatHistory(context, chatHistory)
         }
+    }
+
+    fun ChatHistoryManager.clearChatHistory(context: Context) {}
+
+    // Clear chat history function
+    fun clearChatHistory() {
+        chatHistory.clear()
+        GeminiApiWrapper.inMemoryHistory.clear()
+        scope.launch {
+            ChatHistoryManager.clearChatHistory(context)
+        }
+        showClearDialog = false
+    }
+
+    // Confirmation dialog
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear All Data?") },
+            text = { Text("Are you sure you want to clear all chat history? This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = { clearChatHistory() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showClearDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Column(
@@ -276,7 +312,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                     try {
                                         val result = GeminiApiWrapper.SendAudioWithHistory(
                                             recording,
-                                            getSetupPrompt() // Pass history here
+                                            getSetupPrompt()
                                         )
                                         addMessage("user", result.first)
                                         displayedText = result.second.ifBlank { "No response" }
@@ -301,6 +337,21 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+
+        // Clear Data button at the bottom
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { showClearDialog = true },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF5722),
+                contentColor = Color.White
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        ) {
+            Text("Clear All Data")
         }
     }
 }

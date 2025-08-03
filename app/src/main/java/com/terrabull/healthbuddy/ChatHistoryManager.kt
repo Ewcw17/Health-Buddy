@@ -41,4 +41,20 @@ object ChatHistoryManager {
             emptyList()
         }
     }
+
+    fun clearChatHistory(context: Context) {
+        try {
+            // Delete regular chat history
+            context.deleteFile(FILE_NAME)
+
+            // Delete backend chat history
+            context.deleteFile(BACK_FILE_NAME)
+
+            // Alternative approach that also works:
+            // File(context.filesDir, FILE_NAME).delete()
+            // File(context.filesDir, BACK_FILE_NAME).delete()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

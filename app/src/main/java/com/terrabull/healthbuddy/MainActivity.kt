@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit
 // For animations
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.recorder.AudioRecorder
 import com.terrabull.healthbuddy.ChatHistoryManager.saveChatHistory
 
@@ -134,6 +135,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var displayedText by remember { mutableStateOf("") }
     var showClearDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     // Chat history state
     val chatHistory = remember { mutableStateListOf<ChatMessage>().apply {
@@ -143,6 +145,12 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     if(GeminiApiWrapper.inMemoryHistory.isEmpty())
         GeminiApiWrapper.inMemoryHistory.addAll(ChatHistoryManager.loadChatHistory(context, true))
 
+    // Auto-scroll to bottom when new messages arrive
+    LaunchedEffect(chatHistory.size) {
+        if (chatHistory.isNotEmpty()) {
+            listState.animateScrollToItem(chatHistory.size - 1)
+        }
+    }
     // Animation for robot
     val infiniteTransition = rememberInfiniteTransition()
     val rockAngle by infiniteTransition.animateFloat(
@@ -181,8 +189,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
             ChatHistoryManager.saveChatHistory(context, chatHistory)
         }
     }
-
-    fun ChatHistoryManager.clearChatHistory(context: Context) {}
 
     // Clear chat history function
     fun clearChatHistory() {
@@ -226,6 +232,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
         // Chat history display
         LazyColumn(
             modifier = Modifier.weight(1f),
+            state = listState,
             verticalArrangement = Arrangement.Bottom
         ) {
             items(chatHistory) { message ->
@@ -411,7 +418,7 @@ fun MessageBubble(message: ChatMessage) {
             text = if (message.role == "user") "You" else "Buddy",
             style = MaterialTheme.typography.labelSmall,
             color = Color.Gray,
-            modifier = Modifier.padding(bottom = 2.dp, start = 8.dp, end = 8.dp)
+            modifier = Modifier.padding(horizontal = 8.dp)
         )
 
         // Message bubble

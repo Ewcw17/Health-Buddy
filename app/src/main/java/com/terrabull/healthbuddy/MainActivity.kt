@@ -400,18 +400,35 @@ private fun getSetupPrompt(): String {
 
 @Composable
 fun MessageBubble(message: ChatMessage) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .background(
-                color = if (message.role == "user") Color(0xFFA6E253) else Color(0xFF4CAF50),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(16.dp),
-        contentAlignment = if (message.role == "user") Alignment.CenterEnd else Alignment.CenterStart
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = if (message.role == "user") Alignment.End else Alignment.Start
     ) {
-        Text(text = message.text, color = Color.Black)
+        // Sender name
+        Text(
+            text = if (message.role == "user") "You" else "Buddy",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 2.dp, start = 8.dp, end = 8.dp)
+        )
+
+        // Message bubble
+        Box(
+            modifier = Modifier
+                .background(
+                    color = if (message.role == "user") Color(0xFFA6E253) else Color(0xFF4CAF50),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Text(
+                text = message.text,
+                color = Color.Black,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 

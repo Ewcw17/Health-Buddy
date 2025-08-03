@@ -48,6 +48,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkRequest
+import androidx.work.Data
 import java.util.concurrent.TimeUnit
 
 
@@ -67,8 +68,8 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         createNotificationChannel()
-        scheduleNotificationWorker(1)
-        scheduleNotificationWorker(2)
+        scheduleNotificationWorker(45, "FIRST NOTIFICATION")
+        scheduleNotificationWorker(25, "ZEROTH NOTIFICATION")
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -112,10 +113,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun scheduleNotificationWorker(time_min: Long) {
+    private fun scheduleNotificationWorker(time_min: Long, message: String) {
+        val input = Data.Builder().putString("message", message).build()
         // Create a OneTimeWorkRequest to schedule the worker
         val notificationWorkRequest: WorkRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
-            .setInitialDelay(time_min, TimeUnit.MINUTES) // Set a delay (optional)
+            .setInputData(input)
+            .setInitialDelay(time_min, TimeUnit.SECONDS) // Set a delay (optional)
             .build()
 
         WorkManager.getInstance(this).enqueue(notificationWorkRequest)

@@ -15,17 +15,18 @@ import android.util.Log
 class NotificationWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
 
     override fun doWork(): Result {
-        sendNotification()
+        val message = inputData.getString("message") ?: "Default"
+        sendNotification(message)
         return Result.success()
     }
 
-    private fun sendNotification() {
+    private fun sendNotification(message: String) {
         val notificationId = 101
         val channelId = "channel_id_example_01"
 
         val notification = NotificationCompat.Builder(applicationContext, channelId)
             .setContentTitle("Background Notification")
-            .setContentText("This is a notification triggered by WorkManager!")
+            .setContentText(message)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

@@ -25,7 +25,7 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) : Wor
         val channelId = "channel_id_example_01"
 
         val notification = NotificationCompat.Builder(applicationContext, channelId)
-            .setContentTitle("Background Notification")
+            .setContentTitle("Health Buddy is Reminding You....")
             .setContentText(message)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

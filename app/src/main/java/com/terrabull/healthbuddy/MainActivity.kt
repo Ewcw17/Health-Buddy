@@ -56,18 +56,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkRequest
 import androidx.work.Data
 import java.util.concurrent.TimeUnit
-import android.content.ContentResolver
-import android.content.ContentValues
-import android.provider.CalendarContract
-import android.provider.CalendarContract.Events
-import android.database.Cursor
-import android.net.Uri
-import java.util.Calendar
-import java.util.TimeZone
-import androidx.compose.animation.AnimatedContent
-
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 
 
 // For animations
@@ -88,9 +76,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         createNotificationChannel()
-//        scheduleNotificationWorker(45, "FIRST NOTIFICATION")
-//        scheduleNotificationWorker(25, "ZEROTH NOTIFICATION")
-        //scheduleNotificationWorker(60, "Hey, your workout's about to begin in ten minutes! Are you ready?")
+        scheduleNotificationWorker(60, "Hey, your workout's about to begin in ten minutes! Are you ready?")
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -110,26 +96,6 @@ class MainActivity : ComponentActivity() {
             }
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun sendNotification() {
-        Log.d("TAG", "IN FUCNTION")
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("YOU HAVENT BEEN SLEEPING ENOUGH!!!")
-            .setContentText("Heyyyy uhhh, wouldn't it be cute if you got some sleep?")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-        with(NotificationManagerCompat.from(this)) {
-            if (ActivityCompat.checkSelfPermission(
-                    this@MainActivity,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return@with
-            }
-            notify(notificationId, builder.build())
         }
     }
 

@@ -79,8 +79,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         createNotificationChannel()
-        scheduleNotificationWorker(45, "FIRST NOTIFICATION")
-        scheduleNotificationWorker(25, "ZEROTH NOTIFICATION")
+        //scheduleNotificationWorker(60, "Hey, your workout's about to begin in ten minutes! Are you ready?")
         setContent {
             HealthBuddyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -88,7 +87,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
     }
 
     private fun createNotificationChannel() {
@@ -144,6 +142,7 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
     var displayedText by remember { mutableStateOf("") }
     var showClearDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var botState by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
 
     // Chat history state
@@ -346,7 +345,6 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                             if (!isRecording) {
                                 if (!permissionGranted) {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                    return@Button
                                 }
 
                                 val hasAlarmPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED;
@@ -354,11 +352,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                     permissionLauncher.launch(Manifest.permission.SCHEDULE_EXACT_ALARM)
                                 }
 
-                                recorder = AudioRecorder(context);
+                                Log.d("TAG", "START")
+
                                 recorder.start()
                                 isRecording = true
                                 displayedText = ""
                             } else {
+                                Log.d("TAG", "STOP")
                                 val recording = recorder.stop()
                                 isRecording = false
 
@@ -368,11 +368,13 @@ fun RecordingScreen(modifier: Modifier = Modifier) {
                                         val result = GeminiApiWrapper.SendAudioWithHistory(
                                             recording,
                                             getSetupPrompt()
+                                            //getWorkoutPrompt()
                                         )
                                         addMessage("user", result.first)
                                         displayedText = result.second.ifBlank { "No response" }
                                         addMessage("model", displayedText)
                                         GoogleTtsPlayer.speak(displayedText, context)
+                                        recorder.cancel()
                                     } catch (e: Exception) {
                                         displayedText = "Error: ${e.message}"
                                         addMessage("model", displayedText)
@@ -441,6 +443,26 @@ private fun getSetupPrompt(): String {
         Date: ${LocalDate.now()}
         Time: ${LocalTime.now()}
         Day: ${LocalDate.now().dayOfWeek}
+        
+        Remember:
+        - User interacts via speech-to-text
+        - Your responses will be text-to-speech
+        - Keep responses concise but natural
+    """.trimIndent()
+}
+
+private fun getWorkoutPrompt(): String {
+
+    return """
+        Your name is Buddy, a helpful assistant.
+        
+        Your goal is to help the user create a regimen for healthy living.
+        Talk in a casual, friendly, and conversational manner.
+        Your responses should be no more than one or two sentences long.
+        Ask one question at a time and wait for the user's response.
+        
+        Your goal now is to guide the user through the exercises you have previously lined out.
+        Take feedback back from the user to soften or harden the exercise based on 
         
         Remember:
         - User interacts via speech-to-text

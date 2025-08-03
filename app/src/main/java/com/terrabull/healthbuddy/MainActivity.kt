@@ -88,7 +88,6 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         createNotificationChannel()
-        addEventToDefaultCalendar()
 //        scheduleNotificationWorker(45, "FIRST NOTIFICATION")
 //        scheduleNotificationWorker(25, "ZEROTH NOTIFICATION")
         //scheduleNotificationWorker(60, "Hey, your workout's about to begin in ten minutes! Are you ready?")
@@ -144,56 +143,6 @@ class MainActivity : ComponentActivity() {
 
         WorkManager.getInstance(this).enqueue(notificationWorkRequest)
     }
-
-    @SuppressLint("Range")
-    private fun addEventToDefaultCalendar() {
-        // Step 1: Query the default calendar to get the calendar ID
-        val projection = arrayOf(CalendarContract.Calendars._ID)
-        val selection = "${CalendarContract.Calendars.ACCOUNT_NAME} = ?"
-        val selectionArgs = arrayOf("ethanwilliam.2005@gmail.com")
-        val uri = CalendarContract.Calendars.CONTENT_URI
-        val cursor = contentResolver.query(uri, projection, null, null, null)
-
-        val calendar = Calendar.getInstance()
-
-        calendar.set(2025, Calendar.AUGUST, 8, 13, 0, 0)  // August 8th, 2025, 1 PM
-        val startTime = calendar.timeInMillis
-        calendar.set(2025, Calendar.AUGUST, 8, 15, 0, 0)  // August 8th, 2025, 3 PM
-        val endTime = calendar.timeInMillis
-
-        Log.d("TAG", "massage")
-
-        cursor?.let {
-            if (it.moveToFirst()) {
-                val calendarId = it.getLong(it.getColumnIndex(CalendarContract.Calendars._ID))
-                Log.d("CalendarInfo", "Using calendar ID: $calendarId")
-
-                // Step 2: Create an event in the default calendar
-                val values = ContentValues().apply {
-                    put(CalendarContract.Events.CALENDAR_ID, calendarId)  // Calendar ID of the default calendar
-                    put(CalendarContract.Events.TITLE, "Sample Event")  // Event title
-                    put(CalendarContract.Events.DTSTART, startTime)  // Event start time (10 seconds from now)
-                    put(CalendarContract.Events.DTEND, endTime)  // Event end time (1 minute from now)
-                    put(CalendarContract.Events.DESCRIPTION, "This is a test event.")
-                    put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)  // Default time zone
-                }
-
-                Log.d("CALENDAR", "EVENT WAS MADE")
-
-                val eventUri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-                if (eventUri != null) {
-                    Log.d("EventCreation", "Event created: $eventUri")
-                } else {
-                    Log.e("EventCreation", "Failed to create event.")
-                }
-            } else {
-                Log.e("CalendarQuery", "No calendar found.")
-            }
-            it.close()
-        }
-    }
-}
-
 
 @Composable
 fun RecordingScreen(modifier: Modifier = Modifier) {
@@ -574,4 +523,4 @@ fun RecordingScreenPreview() {
     HealthBuddyTheme {
         RecordingScreen()
     }
-}
+}}

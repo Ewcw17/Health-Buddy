@@ -65,6 +65,10 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.work:work-runtime-ktx:2.10.3")
+    implementation("com.google.android.gms:play-services-auth:20.2.0") // For Google Sign-In
+    implementation("com.google.api-client:google-api-client-android:1.32.1") // Google API Client
+    implementation("com.google.apis:google-api-services-calendar:v3-rev305-1.25.0") // Google Calendar API
+    implementation("com.google.android.material:material:1.7.0") // Optional UI components
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
